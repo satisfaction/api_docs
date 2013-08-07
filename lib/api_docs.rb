@@ -4,9 +4,7 @@ require 'api_docs/configuration'
 require 'api_docs/test_helper'
 
 module ApiDocs
-
   class << self
-    
     def configure
       yield configuration
     end
@@ -15,6 +13,5 @@ module ApiDocs
       @configuration ||= Configuration.new
     end
     alias :config :configuration
-    
   end
 end
