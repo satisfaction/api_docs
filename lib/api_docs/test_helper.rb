@@ -1,5 +1,5 @@
 module ApiDocs::TestHelper
-  
+
   module InstanceMethods
     # Method that allows test creation and will document results in a YAML file
     # Example usage:
@@ -10,29 +10,29 @@ module ApiDocs::TestHelper
     def api_call(method, path, params = {}, headers = {})
       parsed_path   = path.dup
       parsed_params = params.dup
-    
+
       parsed_params.each do |k, v|
         parsed_params.delete(k) if parsed_path.gsub!(":#{k}", v.to_s)
       end
-      
+
       # Making actual test request. Based on the example above:
       #   get '/users/12345'
       send(method, parsed_path, parsed_params, headers)
-            
+
+      meta = Hash.new
+      yield meta if block_given?
+      #
       # Not writing anything to the files unless there was a demand
       if ApiDocs.config.generate_on_demand
         return unless ENV['API_DOCS']
       end
-      
-      meta = Hash.new
-      yield meta if block_given?
-      
+
       # Assertions inside test block didn't fail. Preparing file
       # content to be written
       c      = request.filtered_parameters['controller'].gsub('/', ':')
       a      = request.filtered_parameters['action']
       params = ApiDocs::TestHelper.api_deep_clean_params(params)
-         
+
       # # Marking response as an unique
       key = 'ID-' + Digest::MD5.hexdigest("
         #{method}#{path}#{meta}#{params}#{response.status}}
@@ -71,7 +71,7 @@ module ApiDocs::TestHelper
       @api_docs = docs
     end
   end
-  
+
   # Cleans up params. Removes things like File object handlers
   # Sets up ignored values so we don't generate new keys for same data
   def self.api_deep_clean_params(params)
@@ -83,7 +83,7 @@ module ApiDocs::TestHelper
     when Array
       params.collect{|value| ApiDocs::TestHelper.api_deep_clean_params(value)}
     else
-      case params 
+      case params
       when Rack::Test::UploadedFile
         'BINARY'
       else
@@ -92,7 +92,3 @@ module ApiDocs::TestHelper
     end
   end
 end
-
-ActionDispatch::IntegrationTest.send :include, ApiDocs::TestHelper::InstanceMethods
-ActionDispatch::IntegrationTest.add_setup_hook { read_api_docs }
-ActionDispatch::IntegrationTest.add_setup_hook { write_api_docs }
