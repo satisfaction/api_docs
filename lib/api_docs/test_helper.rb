@@ -20,36 +20,29 @@ module ApiDocs::TestHelper
       #   get '/users/12345'
       
       send(method, parsed_path, parsed_params, headers)
-      
-      meta = Hash.new
-      yield meta if block_given?
-      
+
       # Not writing anything to the files unless there was a demand
       if ApiDocs.config.generate_on_demand
         return unless ENV['API_DOCS']
       end
-    
+
+      meta = Hash.new
+      yield meta if block_given?
+
       # Assertions inside test block didn't fail. Preparing file
       # content to be written
-      c = request.filtered_parameters['controller']
-      a = request.filtered_parameters['action']
-    
-      file_path = File.expand_path("#{c.gsub('/', ':')}.yml", ApiDocs.config.docs_path)
-      params    = ApiDocs::TestHelper.api_deep_clean_params(params)
-    
-      # Marking response as an unique
+      c      = request.filtered_parameters['controller'].gsub('/', ':')
+      a      = request.filtered_parameters['action']
+      params = ApiDocs::TestHelper.api_deep_clean_params(params)
+
+      # # Marking response as an unique
       key = 'ID-' + Digest::MD5.hexdigest("
         #{method}#{path}#{meta}#{params}#{response.status}}
       ")
-    
-      data = if File.exists?(file_path)
-        YAML.load_file(file_path) rescue Hash.new
-      else
-        Hash.new
-      end
-    
-      data[a] ||= { }
-      data[a][key] = {
+
+      api_docs[c]||= { }
+      api_docs[c][a] ||= { }
+      api_docs[c][a][key] = {
         'meta'        => meta,
         'method'      => request.method,
         'path'        => path,
@@ -58,8 +51,26 @@ module ApiDocs::TestHelper
         'status'      => response.status,
         'body'        => response.body
       }
-      FileUtils.mkdir_p(File.dirname(file_path))
-      File.open(file_path, 'w'){|f| f.write(data.to_yaml)}
+    end
+
+    def api_docs
+      @api_docs
+    end
+
+    def write_api_docs
+      api_docs.each do |controller, api_calls|
+        file_path = File.expand_path("#{controller}.yml", ApiDocs.config.docs_path)
+        FileUtils.mkdir_p(File.dirname(file_path))
+        File.open(file_path, 'w'){|f| f.write(api_calls.to_yaml)}
+      end
+    end
+
+    def read_api_docs
+      docs = {}
+      Dir["#{ApiDocs.config.docs_path}/*.yml"].each do |file_path|
+        docs[File.basename(file_path, '.yml')] = YAML.load_file(file_path) rescue Hash.new
+      end
+      @api_docs = docs
     end
   end
   
@@ -85,3 +96,5 @@ module ApiDocs::TestHelper
 end
 
 ActionDispatch::IntegrationTest.send :include, ApiDocs::TestHelper::InstanceMethods
+ActionDispatch::IntegrationTest.add_setup_hook { read_api_docs }
+ActionDispatch::IntegrationTest.add_setup_hook { write_api_docs }
