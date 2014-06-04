@@ -1,7 +1,8 @@
 require File.expand_path('test_helper', File.dirname(__FILE__))
 
 class TestHelperTest < ActionDispatch::IntegrationTest
-  
+  include ApiDocs::TestHelper::InstanceMethods
+
   def setup
     ApiDocs.config.ignored_attributes = %(created_at updated_at)
     ApiDocs.config.generate_on_demand = false
@@ -9,6 +10,7 @@ class TestHelperTest < ActionDispatch::IntegrationTest
     Dir.glob(ApiDocs.config.docs_path.join('*.yml')).each do |file_path|
       FileUtils.rm(file_path)
     end
+    read_api_docs
   end
   
   def test_api_deep_clean_params
@@ -38,7 +40,8 @@ class TestHelperTest < ActionDispatch::IntegrationTest
         'name'  => 'Test User'
       }), JSON.parse(response.body)
     end
-    
+    write_api_docs
+
     api_call(:get, '/users/:id', :id => 'invalid', :format => 'json') do |doc|
       doc[:description] = 'Invalid user id'
       assert_response :not_found
@@ -46,7 +49,8 @@ class TestHelperTest < ActionDispatch::IntegrationTest
         'message' => 'User not found'
       }), JSON.parse(response.body)
     end
-    
+    write_api_docs
+
     output = begin
       YAML.load_file(ApiDocs.config.docs_path.join('application.yml'))
     rescue
@@ -77,6 +81,7 @@ class TestHelperTest < ActionDispatch::IntegrationTest
     api_call(:get, '/users/:id', :id => 12345, :format => 'json') do
       assert_response :success
     end
+    write_api_docs
     output = YAML.load_file(ApiDocs.config.docs_path.join('application.yml'))
     assert_equal 1, output['show'].keys.size
     
@@ -84,6 +89,7 @@ class TestHelperTest < ActionDispatch::IntegrationTest
     api_call(:get, '/users/:id', :id => 12345, :random => 1, :format => 'json') do
       assert_response :success
     end
+    write_api_docs
     output = YAML.load_file(ApiDocs.config.docs_path.join('application.yml'))
     assert_equal 2, output['show'].keys.size
     object = output['show'][output['show'].keys.last]
@@ -92,6 +98,7 @@ class TestHelperTest < ActionDispatch::IntegrationTest
     api_call(:get, '/users/:id', :id => 12345, :random => 1, :format => 'json') do
       assert_response :success
     end
+    write_api_docs
     output = YAML.load_file(ApiDocs.config.docs_path.join('application.yml'))
     assert_equal 2, output['show'].keys.size
   end
@@ -108,6 +115,7 @@ class TestHelperTest < ActionDispatch::IntegrationTest
 eoxml
       assert_equal xml_response, response.body
     end
+    write_api_docs
     output = YAML.load_file(ApiDocs.config.docs_path.join('application.yml'))
     assert_equal 1, output['show'].keys.size
   end
@@ -118,12 +126,14 @@ eoxml
       assert_response :success
       assert_equal ({'message' => 'Authenticated'}), JSON.parse(response.body)
     end
+    write_api_docs
   end
   
   def test_api_call_with_httpauth_failure
     api_call(:get, '/authenticate', :random => 1, :format => 'json') do
       assert_response :unauthorized
     end
+    write_api_docs
   end
   
   def test_api_call_with_generate_on_demand_off
@@ -141,6 +151,7 @@ eoxml
     api_call(:get, '/users/:id', :id => 12345, :format => 'json') do
       assert_response :success
     end
+    write_api_docs
     assert File.exists?(ApiDocs.config.docs_path.join('application.yml'))
   end
 end

@@ -21,13 +21,13 @@ module ApiDocs::TestHelper
       
       send(method, parsed_path, parsed_params, headers)
 
+      meta = Hash.new
+      yield meta if block_given?
+
       # Not writing anything to the files unless there was a demand
       if ApiDocs.config.generate_on_demand
         return unless ENV['API_DOCS']
       end
-
-      meta = Hash.new
-      yield meta if block_given?
 
       # Assertions inside test block didn't fail. Preparing file
       # content to be written
@@ -94,7 +94,3 @@ module ApiDocs::TestHelper
     end
   end
 end
-
-ActionDispatch::IntegrationTest.send :include, ApiDocs::TestHelper::InstanceMethods
-ActionDispatch::IntegrationTest.add_setup_hook { read_api_docs }
-ActionDispatch::IntegrationTest.add_setup_hook { write_api_docs }
